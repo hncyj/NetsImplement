@@ -43,54 +43,35 @@ class FashionMNISTDataset(Dataset):
         return len(self.imgs)
     
     def __getitem__(self, idx):
-        img = self.imgs[idx].reshape(28, 28, -1)
+        img = self.imgs[idx].reshape(28, 28)
         label = int(self.labels[idx])
         
         if self.transform is not None:
             img = self.transform(img)
         else:
-            img = torch.tensor(img / 255., dtype=torch.float)
+            img = transforms.ToTensor()(img)
             
         label = torch.tensor(label, dtype=torch.long)
         
         return img, label
     
-    
+
+## a simple two-layer MLP.
+## use FashionMNIST as input data, img size after transform: [28, 28], batch: [bs, 28, 28]
 class NetWork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
+        self.flatten = nn.Flatten(1, -1)
+        self.hidden = nn.Sequential(
+            nn.Linear(28 * 28, 512),
             nn.ReLU(),
-            nn.MaxPool2d(2),
-            
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2)
-        )
-        
-        self.flatten = nn.Flatten()
-        
-        self.fc = nn.Sequential(
-            nn.Linear(in_features=128 * 3 * 3, out_features=512),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=512, out_features=10)
+            nn.Linear(512, 10),
         )
         
     def forward(self, x):
-        features = self.conv(x)
-        features = self.flatten(features)
-        logits = self.fc(features)
-        
-        return logits
+        logits = self.hidden(self.flatten(x))
+        return logits # use cross-entropy loss func, just return logits without normalize as outputs.
+    
         
 
 def train(model, dataloader, optimizer, criterion, epoch, total_epochs):
@@ -171,8 +152,8 @@ if __name__ == "__main__":
     train_datasets = FashionMNISTDataset("../datasets/FashionMNIST/fashion-mnist_train.csv", transform=transform)
     train_loader = DataLoader(train_datasets, batch_size=batch_size, shuffle=True, drop_last=False)
     
-    test_datasets = FashionMNISTDataset("../datasets/FashionMNIST/fashion-mnist_train.csv", transform=transform)
-    test_loader = DataLoader(test_datasets, batch_size=batch_size, shuffle=True, drop_last=False)
+    val_datasets = FashionMNISTDataset("../datasets/FashionMNIST/fashion-mnist_test.csv", transform=transform)
+    val_loader = DataLoader(val_datasets, batch_size=batch_size, shuffle=True, drop_last=False)
     
     ## 检查数据集是否正确加载
     # data_checker(train_loader)
@@ -185,7 +166,4 @@ if __name__ == "__main__":
     
     for epoch in range(epochs):
         train(model, train_loader, optimizer, criterion, epoch, epochs)
-        val(model, test_loader, criterion, epoch, epochs)
-    
-    
-    
+        val(model, val_loader, criterion, epoch, epochs)
