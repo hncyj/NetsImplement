@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import torch
+from torch import nn
 from  torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 
@@ -33,6 +34,43 @@ class FashionMNISTDataset(Dataset):
         label = torch.tensor(label, dtype=torch.long)
         
         return img, label
+    
+    
+class NetWork(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2)
+        )
+        
+        self.flatten = nn.Flatten()
+        
+        self.fc = nn.Sequential(
+            nn.Linear(in_features=128 * 3 * 3, out_features=512),
+            nn.ReLU(),
+            nn.Dropout(p=0.5),
+            nn.Linear(in_features=512, out_features=10)
+        )
+        
+    def forward(self, x):
+        features = self.conv(x)
+        features = self.flatten(features)
+        logits = self.fc(features)
+        
+        return logits
         
 
 if __name__ == "__main__":
@@ -49,6 +87,8 @@ if __name__ == "__main__":
         9: "Ankle Boot",
     }
     
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     batch_size = 256
     lr = 1e-4
     epochs = 20
@@ -56,6 +96,7 @@ if __name__ == "__main__":
     transform = transforms.Compose(
         [transforms.ToTensor()]
     )
+    
     
     train_datasets = FashionMNISTDataset("./datasets/FashionMNIST/fashion-mnist_train.csv", transform=transform)
     train_loader = DataLoader(train_datasets, batch_size=batch_size, shuffle=True, drop_last=False)
